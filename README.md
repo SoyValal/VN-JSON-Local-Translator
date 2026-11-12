@@ -27,7 +27,7 @@ Resuelve el mayor problema de las traducciones automáticas en novelas visuales:
 
 ### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/TU_USUARIO/vn-json-local-translator.git
+git clone https://github.com/soyvalal/vn-json-local-translator.git
 cd vn-json-local-translator
 ```
 

@@ -21,7 +21,7 @@ Tener instalado Ollama en tu equipo.
 Guía de Instalación y Uso
 1. Clonar el repositorio
 Bash
-git clone https://github.com/TU_USUARIO/vn-json-local-translator.git
+git clone https://github.com/soyvalal/vn-json-local-translator.git
 cd vn-json-local-translator
 2. Instalar las dependencias de Python
 Bash

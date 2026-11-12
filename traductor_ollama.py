@@ -23,6 +23,8 @@ def guardar_json(ruta, datos):
     with open(ruta, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=2)
 
+import re
+
 def traducir_lote(lote_dict):
     prompt = f"""
 Traduce del inglés al español los valores de este objeto JSON correspondiente a diálogos y narración de una novela visual.
@@ -49,13 +51,14 @@ JSON a traducir:
             
             texto_respuesta = response['message']['content'].strip()
             
-            # Limpieza por si el modelo incluye bloques de markdown tipo ```json ... ```
+            # Limpieza de bloques markdown
             if texto_respuesta.startswith("```"):
                 texto_respuesta = texto_respuesta.split("```")[1]
                 if texto_respuesta.startswith("json"):
                     texto_respuesta = texto_respuesta[4:]
             texto_respuesta = texto_respuesta.strip()
 
+            # Intentar cargar el JSON directamente
             resultado = json.loads(texto_respuesta)
             
             if set(resultado.keys()) == set(lote_dict.keys()):
@@ -63,7 +66,17 @@ JSON a traducir:
             else:
                 print(f"  [!] Diferencia en claves detectada localmente. Reintentando ({intento+1}/3)...")
         except Exception as e:
-            print(f"  [!] Error procesando con Ollama: {e}. Reintentando...")
+            # Si falla por escape inválido, intentamos limpiar barras invertidas problemáticas
+            try:
+                # Corrección básica de escapes comunes en comillas
+                texto_corregido = re.sub(r'(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', texto_respuesta)
+                resultado = json.loads(texto_corregido)
+                if set(resultado.keys()) == set(lote_dict.keys()):
+                    return resultado
+            except:
+                pass
+                
+            print(f"  [!] Error procesando lote (Intento {intento+1}/3): {e}. Reintentando...")
             
     raise RuntimeError("No se pudo traducir el lote localmente después de 3 intentos.")
 

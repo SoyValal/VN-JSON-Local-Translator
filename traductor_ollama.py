@@ -11,7 +11,7 @@ MODELO_OLLAMA = "llama3:8b"            # El modelo local de Ollama a utilizar
 GLOSARIO = """
 - Mantén el tono literario, melancólico e inmersivo de una novela visual.
 - Conserva exactamente los saltos de línea (\\n) y símbolos como ―――.
-- No traduzcas nombres propios inventados o de personajes a menos que tengan traducción oficial.
+- No traduzcas nombres propios inventados o de personajes.
 """
 # =================================================
 
@@ -22,8 +22,6 @@ def cargar_json(ruta):
 def guardar_json(ruta, datos):
     with open(ruta, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=2)
-
-import re
 
 def traducir_lote(lote_dict):
     prompt = f"""
@@ -52,8 +50,12 @@ JSON a traducir:
             texto_respuesta = response['message']['content'].strip()
             
             # Limpieza de bloques markdown
-            if texto_respuesta.startswith("```"):
-                texto_respuesta = texto_respuesta.split("```")[1]
+            if "```" in texto_respuesta:
+                bloques = texto_respuesta.split("```")
+                for b in bloques:
+                    if "{" in b and "}" in b:
+                        texto_respuesta = b
+                        break
                 if texto_respuesta.startswith("json"):
                     texto_respuesta = texto_respuesta[4:]
             texto_respuesta = texto_respuesta.strip()
@@ -66,11 +68,10 @@ JSON a traducir:
             else:
                 print(f"  [!] Diferencia en claves detectada localmente. Reintentando ({intento+1}/3)...")
         except Exception as e:
-            # Si falla por escape inválido, intentamos limpiar barras invertidas problemáticas
             try:
-                # Corrección básica de escapes comunes en comillas
-                texto_corregido = re.sub(r'(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', texto_respuesta)
-                resultado = json.loads(texto_corregido)
+                # Limpieza correctiva básica de sintaxis
+                texto_limpio = re.sub(r'\},\s*\}', '}', texto_respuesta)
+                resultado = json.loads(texto_limpio)
                 if set(resultado.keys()) == set(lote_dict.keys()):
                     return resultado
             except:
@@ -78,7 +79,8 @@ JSON a traducir:
                 
             print(f"  [!] Error procesando lote (Intento {intento+1}/3): {e}. Reintentando...")
             
-    raise RuntimeError("No se pudo traducir el lote localmente después de 3 intentos.")
+    # Si después de 3 intentos falla, devolvemos None en lugar de romper el script
+    return None
 
 def main():
     if not os.path.exists(ARCHIVO_ENTRADA):
@@ -105,12 +107,17 @@ def main():
         lote_actual = {str(idx): datos_originales[idx] for idx in range(i, fin)}
         lote_traducido = traducir_lote(lote_actual)
         
+        # Si el lote falló definitivamente, insertamos el texto original sin traducir para no detenernos
+        if lote_traducido is None:
+            print(f"  [X] ADVERTENCIA: El lote {i} a {fin - 1} falló tras 3 intentos. Se mantendrá el texto original para continuar.")
+            lote_traducido = {str(idx): datos_originales[idx] for idx in range(i, fin)}
+
         for idx in range(i, fin):
             datos_traducidos.append(lote_traducido[str(idx)])
             
         guardar_json(ARCHIVO_SALIDA, datos_traducidos)
 
-    print("\n¡Traducción local completada con éxito! Archivo guardado en:", ARCHIVO_SALIDA)
+    print("\n¡Proceso completado! Archivo guardado en:", ARCHIVO_SALIDA)
 
 if __name__ == "__main__":
     main()
